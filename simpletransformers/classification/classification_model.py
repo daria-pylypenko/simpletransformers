@@ -186,6 +186,7 @@ class ClassificationModel:
     def train_model(
         self,
         train_df,
+        multi_task=False,
         multi_label=False,
         output_dir=None,
         show_running_loss=True,
@@ -250,10 +251,17 @@ class ClassificationModel:
             warnings.warn(
                 "Dataframe headers not specified. Falling back to using column 0 as text and column 1 as labels."
             )
-            train_examples = [
-                InputExample(i, text, None, label)
-                for i, (text, label) in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1]))
-            ]
+            if multi_task:
+                train_examples = [
+                    InputExample(i, text, None, label, additional_label)
+                    for i, (text, label, additional_label) 
+                         in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1], train_df.iloc, 2]))
+                ]
+            else:
+                train_examples = [
+                    InputExample(i, text, None, label)
+                    for i, (text, label) in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1]))
+                ]
 
         train_dataset = self.load_and_cache_examples(train_examples, verbose=verbose)
 

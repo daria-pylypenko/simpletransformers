@@ -47,7 +47,7 @@ csv.field_size_limit(2147483647)
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
 
-    def __init__(self, guid, text_a, text_b=None, label=None):
+    def __init__(self, guid, text_a, text_b=None, label=None, additional_label=None):
         """
         Constructs a InputExample.
 
@@ -65,6 +65,7 @@ class InputExample(object):
         self.text_a = text_a
         self.text_b = text_b
         self.label = label
+        self.additional_label = additional_label
 
 
 class InputFeatures(object):

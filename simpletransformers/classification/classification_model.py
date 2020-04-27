@@ -263,7 +263,7 @@ class ClassificationModel:
                     for i, (text, label) in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1]))
                 ]
 
-        train_dataset = self.load_and_cache_examples(train_examples, verbose=verbose)
+        train_dataset = self.load_and_cache_examples(train_examples, verbose=verbose, multi_task=multi_task)
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -290,6 +290,7 @@ class ClassificationModel:
         train_dataset,
         output_dir,
         multi_label=False,
+        multi_task=False,
         show_running_loss=True,
         eval_df=None,
         verbose=True,
@@ -765,7 +766,7 @@ class ClassificationModel:
         return results, model_outputs, wrong
 
     def load_and_cache_examples(
-        self, examples, evaluate=False, no_cache=False, multi_label=False, verbose=True, silent=False
+        self, examples, evaluate=False, no_cache=False, multi_label=False, multi_task=False, verbose=True, silent=False
     ):
         """
         Converts a list of InputExample objects to a TensorDataset containing InputFeatures. Caches the InputFeatures.
@@ -848,11 +849,17 @@ class ClassificationModel:
         all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
 
         if output_mode == "classification":
+            # for now implementing multitask classification only
             all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
+            if multi_task:
+                all_additional_label_ids = torch.tensor([f.additional_label_id for f in features], dtype=torch.long)
         elif output_mode == "regression":
             all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.float)
 
-        dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+        if multi_task:
+            dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids, all_additional_label_ids)
+        else:
+            dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
 
         if args["sliding_window"] and evaluate:
             return dataset, window_counts
@@ -1050,8 +1057,12 @@ class ClassificationModel:
     def _move_model_to_device(self):
         self.model.to(self.device)
 
-    def _get_inputs_dict(self, batch):
-        inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+    def _get_inputs_dict(self, batch, multi_task=False):
+
+        if multi_task:
+            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3], "additional_labels": batch[4]}
+        else:
+            inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
 
         # XLM, DistilBERT and RoBERTa don't use segment_ids
         if self.args["model_type"] != "distilbert":

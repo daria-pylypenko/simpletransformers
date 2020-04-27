@@ -71,11 +71,12 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, label_id):
+    def __init__(self, input_ids, input_mask, segment_ids, label_id, additional_label_id=None):
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.segment_ids = segment_ids
         self.label_id = label_id
+        self.additional_label_id = additional_label_id
 
 
 def convert_example_to_feature(
@@ -188,7 +189,8 @@ def convert_example_to_feature(
     # if output_mode == "regression":
     #     label_id = float(example.label)
 
-    return InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, label_id=example.label,)
+    return InputFeatures(input_ids=input_ids, input_mask=input_mask, 
+                segment_ids=segment_ids, label_id=example.label, additional_label_id=example.additional_label)
 
 
 def convert_example_to_feature_sliding_window(
@@ -293,7 +295,9 @@ def convert_example_to_feature_sliding_window(
         #     raise KeyError(output_mode)
 
         input_features.append(
-            InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, label_id=example.label,)
+            InputFeatures(input_ids=input_ids, input_mask=input_mask, 
+                               segment_ids=segment_ids, label_id=example.label,
+                               additional_label_id=example.additional_label_id)
         )
 
     return input_features

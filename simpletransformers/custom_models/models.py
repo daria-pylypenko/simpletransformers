@@ -72,6 +72,66 @@ class BertForMultiLabelSequenceClassification(BertPreTrainedModel):
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
 
+class BertForMultiTaskSequenceClassification(BertPretrainedModel):
+    """
+    Bert model adapted for multi-task classification
+
+    Currently 2 classification tasks with different numbers of classes
+    """
+    def __init__(self, config, weight=None):
+        super(BertForSequenceClassification, self).__init__(config)
+        self.num_labels_1 = config.num_labels
+        self.num_labels_2 = config.num_additional_labels
+
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier_1 = nn.Linear(config.hidden_size, self.config.num_labels)
+        self.classifier_2 = nn.Linear(config.hidden_size, self.config.num_labels)
+        self.weight = weight
+
+        self.init_weights()
+
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        labels_1=None,
+        labels_2=None
+    ):
+
+        outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+        )
+        # Complains if input_embeds is kept
+
+        pooled_output = outputs[1]
+
+        pooled_output = self.dropout(pooled_output)
+        logits_1 = self.classifier_1(pooled_output)
+        logits_2 = self.classifier_2(pooled_output)
+
+        outputs = (logits_1, logits_2) + outputs[2:]  # add hidden states and attention if they are here
+
+        if labels is not None:
+            loss_fct_1 = CrossEntropyLoss(weight=self.weight)
+            loss_fct_2 = CrossEntropyLoss() # for now will ignore the weights,
+                                            # but in theory could be implemented
+            loss_1 = loss_fct_1(logits_1.view(-1, self.num_labels_1), labels_1.view(-1))
+            loss_2 = loss_fct_2(logits_2.view(-1, self.num_labels_2), labels_2.view(-1))
+            outputs = (loss_1, loss_2,) + outputs
+
+        return outputs  # (loss_1), (loss_2), logits_1, logits_2, (hidden_states), (attentions)
+      
+
+
 class RobertaForMultiLabelSequenceClassification(BertPreTrainedModel):
     """
     Roberta model adapted for multi-label sequence classification

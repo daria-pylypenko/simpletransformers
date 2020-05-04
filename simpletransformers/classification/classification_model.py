@@ -255,7 +255,7 @@ class ClassificationModel:
                 train_examples = [
                     InputExample(i, text, None, label, additional_label)
                     for i, (text, label, additional_label) 
-                         in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1], train_df.iloc, 2]))
+                         in enumerate(zip(train_df.iloc[:, 0], train_df.iloc[:, 1], train_df.iloc[:, 2]))
                 ]
             else:
                 train_examples = [
@@ -612,7 +612,7 @@ class ClassificationModel:
 
         return global_step, tr_loss / global_step
 
-    def eval_model(self, eval_df, multi_label=False, output_dir=None, verbose=True, silent=False, **kwargs):
+    def eval_model(self, eval_df, multi_label=False, multi_task=False, output_dir=None, verbose=True, silent=False, **kwargs):
         """
         Evaluates the model on eval_df. Saves results to output_dir.
 
@@ -646,7 +646,7 @@ class ClassificationModel:
 
         return result, model_outputs, wrong_preds
 
-    def evaluate(self, eval_df, output_dir, multi_label=False, prefix="", verbose=True, silent=False, **kwargs):
+    def evaluate(self, eval_df, output_dir, multi_label=False, multi_task=False, prefix="", verbose=True, silent=False, **kwargs):
         """
         Evaluates the model on eval_df.
 
@@ -676,17 +676,23 @@ class ClassificationModel:
             warnings.warn(
                 "Dataframe headers not specified. Falling back to using column 0 as text and column 1 as labels."
             )
-            eval_examples = [
-                InputExample(i, text, None, label)
-                for i, (text, label) in enumerate(zip(eval_df.iloc[:, 0], eval_df.iloc[:, 1]))
-            ]
+            if multi_task:
+                eval_examples = [
+                    InputExample(i, text, None, label, additional_label)
+                    for i, (text, label) in enumerate(zip(eval_df.iloc[:, 0], eval_df.iloc[:, 1], eval_df.iloc[:, 2]))
+                ]
+            else:
+                eval_examples = [
+                    InputExample(i, text, None, label)
+                    for i, (text, label) in enumerate(zip(eval_df.iloc[:, 0], eval_df.iloc[:, 1]))
+                ]
 
         if args["sliding_window"]:
             eval_dataset, window_counts = self.load_and_cache_examples(
                 eval_examples, evaluate=True, verbose=verbose, silent=silent
             )
         else:
-            eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, verbose=verbose, silent=silent)
+            eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, multi_task=False, verbose=verbose, silent=silent)
         os.makedirs(eval_output_dir, exist_ok=True)
 
         eval_sampler = SequentialSampler(eval_dataset)
@@ -1073,7 +1079,7 @@ class ClassificationModel:
     def _get_last_metrics(self, metric_values):
         return {metric: values[-1] for metric, values in metric_values.items()}
 
-    def _create_training_progress_scores(self, multi_label, **kwargs):
+    def _create_training_progress_scores(self, multi_label, multi_task=False, **kwargs):
         extra_metrics = {key: [] for key in kwargs}
         if multi_label:
             training_progress_scores = {
@@ -1085,17 +1091,36 @@ class ClassificationModel:
             }
         else:
             if self.model.num_labels == 2:
-                training_progress_scores = {
-                    "global_step": [],
-                    "tp": [],
-                    "tn": [],
-                    "fp": [],
-                    "fn": [],
-                    "mcc": [],
-                    "train_loss": [],
-                    "eval_loss": [],
-                    **extra_metrics,
-                }
+                if multi_task:
+                    if self.model_num_additional_labels == 2:                    
+                        training_progress_scores = {
+                            "global_step": [],
+                            "tp_1": [],
+                            "tn_1": [],
+                            "fp_1": [],
+                            "fn_1": [],
+                            "mcc_1": [],
+                            "tp_2": [],
+                            "tn_2": [],
+                            "fp_2": [],
+                            "fn_2": [],
+                            "mcc_2": [],
+                            "train_loss": [],
+                            "eval_loss": [],
+                            **extra_metrics,
+                        }
+                else:
+                    training_progress_scores = {
+                        "global_step": [],
+                        "tp": [],
+                        "tn": [],
+                        "fp": [],
+                        "fn": [],
+                        "mcc": [],
+                        "train_loss": [],
+                        "eval_loss": [],
+                        **extra_metrics,
+                    }
             elif self.model.num_labels == 1:
                 training_progress_scores = {
                     "global_step": [],

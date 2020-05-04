@@ -85,8 +85,8 @@ class BertForMultiTaskSequenceClassification(BertPretrainedModel):
 
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier_1 = nn.Linear(config.hidden_size, self.config.num_labels)
-        self.classifier_2 = nn.Linear(config.hidden_size, self.config.num_labels)
+        self.classifier_1 = nn.Linear(config.hidden_size, self.config.num_labels_1)
+        self.classifier_2 = nn.Linear(config.hidden_size, self.config.num_labels_2)
         self.weight = weight
 
         self.init_weights()
@@ -126,9 +126,10 @@ class BertForMultiTaskSequenceClassification(BertPretrainedModel):
                                             # but in theory could be implemented
             loss_1 = loss_fct_1(logits_1.view(-1, self.num_labels_1), labels_1.view(-1))
             loss_2 = loss_fct_2(logits_2.view(-1, self.num_labels_2), labels_2.view(-1))
-            outputs = (loss_1, loss_2,) + outputs
+            loss = loss_1 + loss_2
+            outputs = (loss,) + outputs
 
-        return outputs  # (loss_1), (loss_2), logits_1, logits_2, (hidden_states), (attentions)
+        return outputs  # (loss), logits_1, logits_2, (hidden_states), (attentions)
       
 
 

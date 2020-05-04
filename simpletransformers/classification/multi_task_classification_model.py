@@ -50,8 +50,9 @@ class MultiTaskClassificationModel(ClassificationModel):
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
 
+        # only for bert
         MODEL_CLASSES = {
-            "bert": (BertConfig, BertForMultiTaskSequenceClassification, BertTokenizer,),
+            "bert": (BertConfig, BertForMultiTaskSequenceClassification, BertTokenizer),
         }
 
 
@@ -145,28 +146,23 @@ class MultiTaskClassificationModel(ClassificationModel):
             show_running_loss=show_running_loss,
             args=args,
             eval_df=eval_df,
-            verbose=True,
+            verbose=verbose,
             **kwargs,
         )
 
-    def eval_model(self, eval_df, multi_label=True, output_dir=None, verbose=False, silent=False, **kwargs):
+    def eval_model(self, eval_df, multi_label=False, multi_task=True, output_dir=None, verbose=False, silent=False, **kwargs):
         return super().eval_model(
             eval_df, output_dir=output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
         )
 
-    def evaluate(self, eval_df, output_dir, multi_label=True, prefix="", verbose=True, silent=False, **kwargs):
-        return super().evaluate(
-            eval_df, output_dir, multi_label=multi_label, prefix=prefix, verbose=verbose, silent=silent, **kwargs
-        )
-
     def load_and_cache_examples(
-        self, examples, evaluate=False, no_cache=False, multi_label=True, verbose=True, silent=False
+        self, examples, evaluate=False, no_cache=False, multi_label=False, multi_task=True, verbose=True, silent=False
     ):
         return super().load_and_cache_examples(
-            examples, evaluate=evaluate, no_cache=no_cache, multi_label=multi_label, verbose=verbose, silent=silent
+            examples, evaluate=evaluate, no_cache=no_cache, multi_label=multi_label, multi_task=multi_task, verbose=verbose, silent=silent
         )
 
-    def compute_metrics(self, preds, labels, eval_examples, multi_label=True, **kwargs):
+    def compute_metrics(self, preds, labels, eval_examples, multi_label=False, **kwargs):
         return super().compute_metrics(preds, labels, eval_examples, multi_label=multi_label, **kwargs)
 
     def predict(self, to_predict, multi_label=True):

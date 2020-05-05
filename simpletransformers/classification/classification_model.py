@@ -458,24 +458,44 @@ class ClassificationModel:
                         and global_step % args["evaluate_during_training_steps"] == 0
                     ):
                         # Only evaluate when single GPU otherwise metrics may not average well
-                        results, _, _ = self.eval_model(
-                            eval_df,
-                            verbose=verbose and args["evaluate_during_training_verbose"],
-                            silent=True,
-                            **kwargs,
-                        )
+                        if multi_task:
+                            results, additional_results, _, _, _, _ = self.eval_model(
+                                eval_df,
+                                verbose=verbose and args["evaluate_during_training_verbose"],
+                                silent=True,
+                                **kwargs,
+                            )
+                        else:
+                            results, _, _ = self.eval_model(
+                                eval_df,
+                                verbose=verbose and args["evaluate_during_training_verbose"],
+                                silent=True,
+                                **kwargs,
+                            )
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
+                        if multi_task:
+                            for key, value in additional_results.items():
+                                tb_writer.add_scalar("eval_{}_2".format(key), value, global_step)
+                            
 
                         output_dir_current = os.path.join(output_dir, "checkpoint-{}".format(global_step))
 
                         if args["save_eval_checkpoints"]:
-                            self._save_model(output_dir_current, optimizer, scheduler, model=model, results=results)
+                            if multi_task:
+                                self._save_model(output_dir_current, optimizer, scheduler, model=model, results=results)
+                            else:
+                                self._save_model(output_dir_current, optimizer, 
+                                             scheduler, model=model, results=results, additional_results=additional_results)
 
                         training_progress_scores["global_step"].append(global_step)
                         training_progress_scores["train_loss"].append(current_loss)
                         for key in results:
                             training_progress_scores[key].append(results[key])
+                        if multi_task:
+                            for key in additional_results:
+                                training_progress_scores[key + "_2"].append(additional_results[key])
+                            
                         report = pd.DataFrame(training_progress_scores)
                         report.to_csv(
                             os.path.join(args["output_dir"], "training_progress_scores.csv"), index=False,
@@ -486,18 +506,28 @@ class ClassificationModel:
 
                         if not best_eval_metric:
                             best_eval_metric = results[args["early_stopping_metric"]]
-                            self._save_model(
-                                args["best_model_dir"], optimizer, scheduler, model=model, results=results
-                            )
+                            if multi_task:
+                                self._save_model(
+                                    args["best_model_dir"], optimizer, scheduler, model=model, results=results,
+                                        additional_results=additional_results)
+                            else:
+                                self._save_model(
+                                    args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                )
                         if best_eval_metric and args["early_stopping_metric_minimize"]:
                             if (
                                 results[args["early_stopping_metric"]] - best_eval_metric
                                 < args["early_stopping_delta"]
                             ):
                                 best_eval_metric = results[args["early_stopping_metric"]]
-                                self._save_model(
-                                    args["best_model_dir"], optimizer, scheduler, model=model, results=results
-                                )
+                                if multi_task:
+                                    self._save_model(
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                               addtional_results=additional_results)
+                                else:
+                                    self._save_model(
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                    )
                                 early_stopping_counter = 0
                             else:
                                 if args["use_early_stopping"]:
@@ -521,9 +551,14 @@ class ClassificationModel:
                                 > args["early_stopping_delta"]
                             ):
                                 best_eval_metric = results[args["early_stopping_metric"]]
-                                self._save_model(
-                                    args["best_model_dir"], optimizer, scheduler, model=model, results=results
-                                )
+                                if multi_task:
+                                    self._save_model(
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                                 additional_results=additional_results)
+                                else:
+                                    self._save_model(
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                    )
                                 early_stopping_counter = 0
                             else:
                                 if args["use_early_stopping"]:
@@ -552,16 +587,27 @@ class ClassificationModel:
                 self._save_model(output_dir_current, optimizer, scheduler, model=model)
 
             if args["evaluate_during_training"]:
-                results, _, _ = self.eval_model(
-                    eval_df, verbose=verbose and args["evaluate_during_training_verbose"], silent=True, **kwargs
-                )
+                if multi_task:
+                    results, additional_results, _, _, _, _ = self.eval_model(
+                        eval_df, verbose=verbose and args["evaluate_during_training_verbose"], silent=True, **kwargs
+                    )
+                else:
+                    results, _, _ = self.eval_model(
+                        eval_df, verbose=verbose and args["evaluate_during_training_verbose"], silent=True, **kwargs
+                    )
 
-                self._save_model(output_dir_current, optimizer, scheduler, results=results)
+                if multi_task:
+                    self._save_model(output_dir_current, optimizer, scheduler, results=results, additional_results=additional_results)
+                else:
+                    self._save_model(output_dir_current, optimizer, scheduler, results=results)
 
                 training_progress_scores["global_step"].append(global_step)
                 training_progress_scores["train_loss"].append(current_loss)
                 for key in results:
                     training_progress_scores[key].append(results[key])
+                if multi_task:
+                    for key in additional_results:
+                        training_progress_scores[key + "_2"].append(results[key])
                 report = pd.DataFrame(training_progress_scores)
                 report.to_csv(os.path.join(args["output_dir"], "training_progress_scores.csv"), index=False)
 
@@ -570,11 +616,19 @@ class ClassificationModel:
 
                 if not best_eval_metric:
                     best_eval_metric = results[args["early_stopping_metric"]]
-                    self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
+                    if multi_task:
+                        self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results,
+                                         additional_results=additional_results)
+                    else:
+                        self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
                 if best_eval_metric and args["early_stopping_metric_minimize"]:
                     if results[args["early_stopping_metric"]] - best_eval_metric < args["early_stopping_delta"]:
                         best_eval_metric = results[args["early_stopping_metric"]]
-                        self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
+                        if multi_task:
+                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results,
+                                               additional_results=additional_results)
+                        else:
+                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
                         early_stopping_counter = 0
                     else:
                         if args["use_early_stopping"] and args["early_stopping_consider_epochs"]:
@@ -593,7 +647,11 @@ class ClassificationModel:
                 else:
                     if results[args["early_stopping_metric"]] - best_eval_metric > args["early_stopping_delta"]:
                         best_eval_metric = results[args["early_stopping_metric"]]
-                        self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
+                        if multi_task:
+                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                          additional_results=additional_results)
+                        else:
+                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)
                         early_stopping_counter = 0
                     else:
                         if args["use_early_stopping"] and args["early_stopping_consider_epochs"]:
@@ -640,17 +698,24 @@ class ClassificationModel:
             result, additional_result, model_outputs, additional_model_outputs, wrong_preds, additional_wrong_preds = self.evaluate(
                 eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
             )
-            # TODO
         else:
             result, model_outputs, wrong_preds = self.evaluate(
                 eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
             )
-            self.results.update(result)
+
+        self.results.update(result)
+        if multi_task:
+            self.additional_results.update(additional_result)
 
         if verbose:
-            logger.info(self.results) # TODO
+            logger.info(self.results)
+            if multi_task:
+                logger.info(self.additional_results)
 
-        return result, model_outputs, wrong_preds
+        if multi_task:
+            return result, additional_result, model_outputs, additional_model_outputs, wrong_preds, additional_wrong_preds
+        else:
+            return result, model_outputs, wrong_preds
 
     def evaluate(self, eval_df, output_dir, multi_label=False, multi_task=False, prefix="", verbose=True, silent=False, **kwargs):
         """
@@ -789,6 +854,8 @@ class ClassificationModel:
         result["eval_loss"] = eval_loss
         results.update(result)
 
+        # we only add the eval_loss to results, not include it into additional_results,
+        # to not repeat it
         if multi_task:    
             additional_result, additional_wrong = self.compute_metrics(additional_preds, out_additional_label_ids, eval_examples, **kwargs)
             additional_results.update(additional_result)
@@ -950,7 +1017,7 @@ class ClassificationModel:
         else:
             return {**{"mcc": mcc}, **extra_metrics}, wrong
 
-    def predict(self, to_predict, multi_label=False):
+    def predict(self, to_predict, multi_label=False, multi_task=False):
         """
         Performs predictions on a list of text.
 
@@ -976,12 +1043,15 @@ class ClassificationModel:
             if isinstance(to_predict[0], list):
                 eval_examples = [InputExample(i, text[0], text[1], 0) for i, text in enumerate(to_predict)]
             else:
-                eval_examples = [InputExample(i, text, None, 0) for i, text in enumerate(to_predict)]
-        if args["sliding_window"]:
+                if multi_task:
+                    eval_examples = [InputExample(i, text, None, 0, 0) for i, text in enumerate(to_predict)]
+                else:
+                    eval_examples = [InputExample(i, text, None, 0) for i, text in enumerate(to_predict)]
+        if args["sliding_window"]: # not implementing multi-task for sliding window for now
             eval_dataset, window_counts = self.load_and_cache_examples(eval_examples, evaluate=True, no_cache=True)
         else:
             eval_dataset = self.load_and_cache_examples(
-                eval_examples, evaluate=True, multi_label=multi_label, no_cache=True
+                eval_examples, evaluate=True, multi_label=multi_label, multi_task=multi_task, no_cache=True
             )
 
         eval_sampler = SequentialSampler(eval_dataset)
@@ -1001,7 +1071,12 @@ class ClassificationModel:
                     inputs = self._get_inputs_dict(batch)
                     outputs = model(**inputs)
                     tmp_eval_loss, logits = outputs[:2]
-                    embedding_outputs, layer_hidden_states = outputs[2][0], outputs[2][1:]
+                    if multi_task:
+                        additional_logits = outputs[2]
+                    if multi_task:
+                        embedding_outputs, layer_hidden_states = outputs[3][0], outputs[3][1:]
+                    else:
+                        embedding_outputs, layer_hidden_states = outputs[2][0], outputs[2][1:]
 
                     if multi_label:
                         logits = logits.sigmoid()
@@ -1022,6 +1097,14 @@ class ClassificationModel:
                         [state.detach().cpu().numpy() for state in layer_hidden_states], axis=0
                     )
                     all_embedding_outputs = np.append(embedding_outputs.detach().cpu().numpy(), axis=0)
+
+                if multi_task:
+                    if additional_preds is None:
+                        additional_preds = additional_logits.detach().cpu().numpy()
+                        out_additional_label_ids = inputs["additional_labels"].detach().cpu().numpy()
+                    else:
+                        additional_preds = np.append(additional_preds, additional_logits.detach().cpu().numpy(), axis=0)
+                        out_additional_label_ids = np.append(out_additional_label_ids, inputs["additional_labels"].detach().cpu().numpy(), axis=0)
         else:
             for batch in tqdm(eval_dataloader, disable=args["silent"]):
                 model.eval()
@@ -1031,6 +1114,8 @@ class ClassificationModel:
                     inputs = self._get_inputs_dict(batch)
                     outputs = model(**inputs)
                     tmp_eval_loss, logits = outputs[:2]
+                    if multi_task:
+                        additional_logits = outputs[2]
 
                     if multi_label:
                         logits = logits.sigmoid()
@@ -1045,6 +1130,14 @@ class ClassificationModel:
                 else:
                     preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                     out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
+
+                if multi_task:
+                    if additional_preds is None:
+                        additional_preds = additional_logits.detach().cpu().numpy()
+                        out_additional_label_ids = inputs["additional_labels"].detach().cpu().numpy()
+                    else:
+                        additional_preds = np.append(additional_preds, additional_logits.detach().cpu().numpy(), axis=0)
+                        out_additional_label_ids = np.append(out_additional_label_ids, inputs["additional_labels"].detach().cpu().numpy(), axis=0)
 
         eval_loss = eval_loss / nb_eval_steps
 
@@ -1073,6 +1166,8 @@ class ClassificationModel:
             model_outputs = preds
         else:
             model_outputs = preds
+            if multi_task:
+                additional_model_outputs = additional_preds
             if multi_label:
                 if isinstance(args["threshold"], list):
                     threshold_values = args["threshold"]
@@ -1084,11 +1179,19 @@ class ClassificationModel:
                     preds = [[self._threshold(pred, args["threshold"]) for pred in example] for example in preds]
             else:
                 preds = np.argmax(preds, axis=1)
+                if multi_task:
+                    additional_preds = np.argmax(additional_preds, axis=1)
 
         if self.config.output_hidden_states:
-            return preds, model_outputs, all_embedding_outputs, all_layer_hidden_states
+            if multi_task:
+                return preds, additional_preds, model_outputs, additional_model_outputs, all_embedding_outputs, all_layer_hidden_states
+            else:
+                return preds, model_outputs, all_embedding_outputs, all_layer_hidden_states
         else:
-            return preds, model_outputs
+            if multi_task:
+                return preds, additional_preds, model_outputs, additional_model_outputs
+            else:
+                return preds, model_outputs
 
     def _threshold(self, x, threshold):
         if x >= threshold:
@@ -1162,7 +1265,7 @@ class ClassificationModel:
 
         return training_progress_scores
 
-    def _save_model(self, output_dir, optimizer, scheduler, model=None, results=None):
+    def _save_model(self, output_dir, optimizer, scheduler, model=None, results=None, additional_results=None):
         os.makedirs(output_dir, exist_ok=True)
 
         if model:
@@ -1180,6 +1283,9 @@ class ClassificationModel:
             with open(output_eval_file, "w") as writer:
                 for key in sorted(results.keys()):
                     writer.write("{} = {}\n".format(key, str(results[key])))
+                if additional_results: 
+                    for key in sorted(additional_results.keys()):
+                        writer.write("{} = {}\n".format(key + "_2", str(additional_results[key])))
 
     def _save_model_args(self, output_dir):
         os.makedirs(output_dir, exist_ok=True)

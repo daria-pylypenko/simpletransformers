@@ -110,6 +110,7 @@ class MultiTaskClassificationModel(ClassificationModel):
             self.model = model_class.from_pretrained(model_name, config=self.config, **kwargs)
 
         self.results = {}
+        self.additional_results = {} # for the second classification task
 
         if not use_cuda:
             self.args["fp16"] = False
@@ -162,5 +163,5 @@ class MultiTaskClassificationModel(ClassificationModel):
             examples, evaluate=evaluate, no_cache=no_cache, multi_label=multi_label, multi_task=multi_task, verbose=verbose, silent=silent
         )
 
-    def predict(self, to_predict, multi_label=True):
-        return super().predict(to_predict, multi_label=multi_label)
+    def predict(self, to_predict, multi_label=False, multi_task=True):
+        return super().predict(to_predict, multi_label=multi_label, multi_task=multi_task)

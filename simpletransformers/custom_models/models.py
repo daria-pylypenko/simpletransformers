@@ -119,6 +119,8 @@ class BertForMultiTaskSequenceClassification(BertPretrainedModel):
         logits_2 = self.classifier_2(pooled_output)
 
         outputs = (logits_1, logits_2) + outputs[2:]  # add hidden states and attention if they are here
+        # by default they will not be returned
+        # (need to set output_hidden_states and output_attentions to True in the BertConfig)
 
         if labels is not None:
             loss_fct_1 = CrossEntropyLoss(weight=self.weight)

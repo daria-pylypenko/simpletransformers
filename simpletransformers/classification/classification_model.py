@@ -636,13 +636,19 @@ class ClassificationModel:
 
         self._move_model_to_device()
 
-        result, model_outputs, wrong_preds = self.evaluate(
-            eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
-        )
-        self.results.update(result)
+        if multi_task:
+            result, additional_result, model_outputs, additional_model_outputs, wrong_preds, additional_wrong_preds = self.evaluate(
+                eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
+            )
+            # TODO
+        else:
+            result, model_outputs, wrong_preds = self.evaluate(
+                eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
+            )
+            self.results.update(result)
 
         if verbose:
-            logger.info(self.results)
+            logger.info(self.results) # TODO
 
         return result, model_outputs, wrong_preds
 
@@ -659,6 +665,9 @@ class ClassificationModel:
         eval_output_dir = output_dir
 
         results = {}
+        if multi_task:
+            additional_results = {}
+        
 
         if "text" in eval_df.columns and "labels" in eval_df.columns:
             eval_examples = [
@@ -702,6 +711,9 @@ class ClassificationModel:
         nb_eval_steps = 0
         preds = None
         out_label_ids = None
+        if multi_task:
+            additional_preds = None
+            out_additional_label_ids = None
         model.eval()
 
         for batch in tqdm(eval_dataloader, disable=args["silent"] or silent):
@@ -712,6 +724,8 @@ class ClassificationModel:
 
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
+                if multi_task:
+                    additional_logits = outputs[2]
 
                 if multi_label:
                     logits = logits.sigmoid()
@@ -726,9 +740,17 @@ class ClassificationModel:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                 out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
+            if multi_task:
+                if additional_preds is None:
+                    additional_preds = additional_logits.detach().cpu().numpy()
+                    out_additional_label_ids = inputs["additional_labels"].detach().cpu().numpy()
+                else:
+                    additional_preds = np.append(additional_preds, additional_logits.detach().cpu().numpy(), axis=0)
+                    out_additional_label_ids = np.append(out_additional_label_ids, inputs["additional_labels"].detach().cpu().numpy(), axis=0)
+
         eval_loss = eval_loss / nb_eval_steps
 
-        if args["sliding_window"]:
+        if args["sliding_window"]:  # multi-tasking and sliding window combination is not implemented for now
             count = 0
             window_ranges = []
             for n_windows in window_counts:
@@ -756,6 +778,9 @@ class ClassificationModel:
             model_outputs = preds
         else:
             model_outputs = preds
+            if multi_task:
+                additional_model_outputs = additional_preds
+            
 
             if not multi_label:
                 preds = np.argmax(preds, axis=1)
@@ -764,12 +789,22 @@ class ClassificationModel:
         result["eval_loss"] = eval_loss
         results.update(result)
 
+        if multi_task:    
+            additional_result, additional_wrong = self.compute_metrics(additional_preds, out_additional_label_ids, eval_examples, **kwargs)
+            additional_results.update(additional_result)
+
         output_eval_file = os.path.join(eval_output_dir, "eval_results.txt")
         with open(output_eval_file, "w") as writer:
             for key in sorted(result.keys()):
                 writer.write("{} = {}\n".format(key, str(result[key])))
-
-        return results, model_outputs, wrong
+            if multi_task:
+                for key in sorted(additional_result.keys()):
+                    writer.write("{} = {}\n".format(key + "_2", str(additional_result[key])))
+                
+        if multi_task:
+            return results, additional_results, model_outputs, additional_model_outputs, wrong, additional_wrong
+        else:
+            return results, model_outputs, wrong
 
     def load_and_cache_examples(
         self, examples, evaluate=False, no_cache=False, multi_label=False, multi_task=False, verbose=True, silent=False
@@ -1089,38 +1124,19 @@ class ClassificationModel:
                 "eval_loss": [],
                 **extra_metrics,
             }
-        else:
+        else:  # no multi-tasking and multi-label combination for now
             if self.model.num_labels == 2:
-                if multi_task:
-                    if self.model_num_additional_labels == 2:                    
-                        training_progress_scores = {
-                            "global_step": [],
-                            "tp_1": [],
-                            "tn_1": [],
-                            "fp_1": [],
-                            "fn_1": [],
-                            "mcc_1": [],
-                            "tp_2": [],
-                            "tn_2": [],
-                            "fp_2": [],
-                            "fn_2": [],
-                            "mcc_2": [],
-                            "train_loss": [],
-                            "eval_loss": [],
-                            **extra_metrics,
-                        }
-                else:
-                    training_progress_scores = {
-                        "global_step": [],
-                        "tp": [],
-                        "tn": [],
-                        "fp": [],
-                        "fn": [],
-                        "mcc": [],
-                        "train_loss": [],
-                        "eval_loss": [],
-                        **extra_metrics,
-                    }
+                training_progress_scores = {
+                    "global_step": [],
+                    "tp": [],
+                    "tn": [],
+                    "fp": [],
+                    "fn": [],
+                    "mcc": [],
+                    "train_loss": [],
+                    "eval_loss": [],
+                    **extra_metrics,
+                }
             elif self.model.num_labels == 1:
                 training_progress_scores = {
                     "global_step": [],
@@ -1136,6 +1152,13 @@ class ClassificationModel:
                     "eval_loss": [],
                     **extra_metrics,
                 }
+            if multi_task:
+                # compute additional metric, e.g. accuracy, for the second classification task too
+                training_progress_scores.update({ key + "_2" : value for (key,value) in extra_metrics.items()})
+                if self.model.num_additional_labels >= 2:
+                    training_progress_scores.update({"mcc_2": []})
+                if self.model.num_additional_labels == 2:
+                    training_progress_scores.update({"tp_2": [], "tn_2": [], "fp_2": [], "fn_2": []})
 
         return training_progress_scores
 

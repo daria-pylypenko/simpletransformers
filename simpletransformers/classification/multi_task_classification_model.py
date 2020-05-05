@@ -152,7 +152,7 @@ class MultiTaskClassificationModel(ClassificationModel):
 
     def eval_model(self, eval_df, multi_label=False, multi_task=True, output_dir=None, verbose=False, silent=False, **kwargs):
         return super().eval_model(
-            eval_df, output_dir=output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
+            eval_df, multi_label=multi_label, multi_task=multi_task, output_dir=output_dir, verbose=verbose, silent=silent, **kwargs
         )
 
     def load_and_cache_examples(
@@ -161,9 +161,6 @@ class MultiTaskClassificationModel(ClassificationModel):
         return super().load_and_cache_examples(
             examples, evaluate=evaluate, no_cache=no_cache, multi_label=multi_label, multi_task=multi_task, verbose=verbose, silent=silent
         )
-
-    def compute_metrics(self, preds, labels, eval_examples, multi_label=False, **kwargs):
-        return super().compute_metrics(preds, labels, eval_examples, multi_label=multi_label, **kwargs)
 
     def predict(self, to_predict, multi_label=True):
         return super().predict(to_predict, multi_label=multi_label)

@@ -72,7 +72,7 @@ class BertForMultiLabelSequenceClassification(BertPreTrainedModel):
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
 
-class BertForMultiTaskSequenceClassification(BertPretrainedModel):
+class BertForMultiTaskSequenceClassification(BertPreTrainedModel):
     """
     Bert model adapted for multi-task classification
 

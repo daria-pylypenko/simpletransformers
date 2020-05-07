@@ -522,8 +522,8 @@ class ClassificationModel:
                                 best_eval_metric = results[args["early_stopping_metric"]]
                                 if multi_task:
                                     self._save_model(
-                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
-                                               addtional_results=additional_results)
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results,
+                                               additional_results=additional_results)
                                 else:
                                     self._save_model(
                                         args["best_model_dir"], optimizer, scheduler, model=model, results=results
@@ -553,7 +553,7 @@ class ClassificationModel:
                                 best_eval_metric = results[args["early_stopping_metric"]]
                                 if multi_task:
                                     self._save_model(
-                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                                        args["best_model_dir"], optimizer, scheduler, model=model, results=results,
                                                  additional_results=additional_results)
                                 else:
                                     self._save_model(
@@ -648,7 +648,7 @@ class ClassificationModel:
                     if results[args["early_stopping_metric"]] - best_eval_metric > args["early_stopping_delta"]:
                         best_eval_metric = results[args["early_stopping_metric"]]
                         if multi_task:
-                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results
+                            self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results,
                                           additional_results=additional_results)
                         else:
                             self._save_model(args["best_model_dir"], optimizer, scheduler, model=model, results=results)

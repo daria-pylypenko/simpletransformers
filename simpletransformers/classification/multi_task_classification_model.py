@@ -5,7 +5,7 @@ from multiprocessing import cpu_count
 import torch
 from simpletransformers.classification import ClassificationModel
 from simpletransformers.config.global_args import global_args
-from simpletransformers.custom_models.models import BertForMultiTaskSequenceClassification,
+from simpletransformers.custom_models.models import BertForMultiTaskSequenceClassification
 from transformers import (
     BertConfig,
     BertTokenizer,

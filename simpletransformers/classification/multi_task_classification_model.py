@@ -1,4 +1,6 @@
 import logging
+import numpy as np
+import random
 import warnings
 from multiprocessing import cpu_count
 
@@ -86,7 +88,7 @@ class MultiTaskClassificationModel(ClassificationModel):
             self.config = config_class.from_pretrained(model_name, **self.args["config"])
             self.num_labels = self.config.num_labels # 2 by default
         self.config.num_additional_labels = num_additional_labels
-        self.weight = pos_weight
+        self.weight = weight
 
         if use_cuda:
             if torch.cuda.is_available():
@@ -104,7 +106,7 @@ class MultiTaskClassificationModel(ClassificationModel):
 
         if self.weight:
             self.model = model_class.from_pretrained(
-                model_name, config=self.config, weight=torch.Tensor(self.pos_weight).to(self.device), **kwargs
+                model_name, config=self.config, weight=torch.Tensor(self.weight).to(self.device), **kwargs
             )
         else:
             self.model = model_class.from_pretrained(model_name, config=self.config, **kwargs)

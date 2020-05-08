@@ -271,6 +271,7 @@ class ClassificationModel:
             train_dataset,
             output_dir,
             multi_label=multi_label,
+            multi_task=multi_task,
             show_running_loss=show_running_loss,
             eval_df=eval_df,
             verbose=verbose,
@@ -393,7 +394,7 @@ class ClassificationModel:
                     continue
                 batch = tuple(t.to(device) for t in batch)
 
-                inputs = self._get_inputs_dict(batch)
+                inputs = self._get_inputs_dict(batch, multi_task=multi_task)
                 outputs = model(**inputs)
                 # model outputs are always tuple in pytorch-transformers (see doc)
                 loss = outputs[0]
@@ -785,7 +786,7 @@ class ClassificationModel:
             batch = tuple(t.to(device) for t in batch)
 
             with torch.no_grad():
-                inputs = self._get_inputs_dict(batch)
+                inputs = self._get_inputs_dict(batch, multi_task=multi_task)
 
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
@@ -1068,7 +1069,7 @@ class ClassificationModel:
                 batch = tuple(t.to(device) for t in batch)
 
                 with torch.no_grad():
-                    inputs = self._get_inputs_dict(batch)
+                    inputs = self._get_inputs_dict(batch, multi_task=multi_task)
                     outputs = model(**inputs)
                     tmp_eval_loss, logits = outputs[:2]
                     if multi_task:
@@ -1111,7 +1112,7 @@ class ClassificationModel:
                 batch = tuple(t.to(device) for t in batch)
 
                 with torch.no_grad():
-                    inputs = self._get_inputs_dict(batch)
+                    inputs = self._get_inputs_dict(batch, multi_task=multi_task)
                     outputs = model(**inputs)
                     tmp_eval_loss, logits = outputs[:2]
                     if multi_task:

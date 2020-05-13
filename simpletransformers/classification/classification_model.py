@@ -235,6 +235,7 @@ class ClassificationModel:
 
         self._move_model_to_device()
 
+        # TODO implement multi-task for when there are column captions
         if "text" in train_df.columns and "labels" in train_df.columns:
             train_examples = [
                 InputExample(i, text, None, label)
@@ -376,7 +377,7 @@ class ClassificationModel:
                 logger.info("   Starting fine-tuning.")
 
         if args["evaluate_during_training"]:
-            training_progress_scores = self._create_training_progress_scores(multi_label, **kwargs)
+            training_progress_scores = self._create_training_progress_scores(multi_label, multi_task=multi_task, **kwargs)
 
         if args["wandb_project"]:
             wandb.init(project=args["wandb_project"], config={**args}, **args["wandb_kwargs"])
@@ -608,7 +609,7 @@ class ClassificationModel:
                     training_progress_scores[key].append(results[key])
                 if multi_task:
                     for key in additional_results:
-                        training_progress_scores[key + "_2"].append(results[key])
+                        training_progress_scores[key + "_2"].append(additional_results[key])
                 report = pd.DataFrame(training_progress_scores)
                 report.to_csv(os.path.join(args["output_dir"], "training_progress_scores.csv"), index=False)
 
@@ -697,7 +698,7 @@ class ClassificationModel:
 
         if multi_task:
             result, additional_result, model_outputs, additional_model_outputs, wrong_preds, additional_wrong_preds = self.evaluate(
-                eval_df, output_dir, multi_label=multi_label, verbose=verbose, silent=silent, **kwargs
+                eval_df, output_dir, multi_label=multi_label, multi_task=multi_task, verbose=verbose, silent=silent, **kwargs
             )
         else:
             result, model_outputs, wrong_preds = self.evaluate(
@@ -734,7 +735,7 @@ class ClassificationModel:
         if multi_task:
             additional_results = {}
         
-
+        # TODO: implement multi-task for the case when columns have captions
         if "text" in eval_df.columns and "labels" in eval_df.columns:
             eval_examples = [
                 InputExample(i, text, None, label)
@@ -754,7 +755,7 @@ class ClassificationModel:
             if multi_task:
                 eval_examples = [
                     InputExample(i, text, None, label, additional_label)
-                    for i, (text, label) in enumerate(zip(eval_df.iloc[:, 0], eval_df.iloc[:, 1], eval_df.iloc[:, 2]))
+                    for i, (text, label, additional_label) in enumerate(zip(eval_df.iloc[:, 0], eval_df.iloc[:, 1], eval_df.iloc[:, 2]))
                 ]
             else:
                 eval_examples = [
@@ -767,7 +768,7 @@ class ClassificationModel:
                 eval_examples, evaluate=True, verbose=verbose, silent=silent
             )
         else:
-            eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, multi_task=False, verbose=verbose, silent=silent)
+            eval_dataset = self.load_and_cache_examples(eval_examples, evaluate=True, multi_task=multi_task, verbose=verbose, silent=silent)
         os.makedirs(eval_output_dir, exist_ok=True)
 
         eval_sampler = SequentialSampler(eval_dataset)
@@ -850,6 +851,8 @@ class ClassificationModel:
 
             if not multi_label:
                 preds = np.argmax(preds, axis=1)
+                if multi_task:
+                    additional_preds = np.argmax(additional_preds, axis=1)
 
         result, wrong = self.compute_metrics(preds, out_label_ids, eval_examples, **kwargs)
         result["eval_loss"] = eval_loss

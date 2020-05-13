@@ -1261,7 +1261,7 @@ class ClassificationModel:
                 }
             if multi_task:
                 # compute additional metric, e.g. accuracy, for the second classification task too
-                training_progress_scores.update({ key + "_2" : value for (key,value) in extra_metrics.items()})
+                training_progress_scores.update({ key + "_2" : [] for key in extra_metrics.keys()})
                 if self.model.num_additional_labels >= 2:
                     training_progress_scores.update({"mcc_2": []})
                 if self.model.num_additional_labels == 2:

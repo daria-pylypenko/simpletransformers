@@ -81,13 +81,23 @@ class MultiTaskClassificationModel(ClassificationModel):
 
 
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
-        if num_labels:
+        # only if we provide the num_labels and num_additional_labels as function arguments,
+        # they will be assigned;
+        # otherwise, if we provide config of the already trained model, the num_labels and
+        # num_additional_labels will be taken from there
+        # if we do not provide anything, the num_labels will default to 2 (due to the transformers library),
+        # and num_additional_labels will not be set (should maybe fix this later?)
+        if num_labels and num_additional_labels:
             self.config = config_class.from_pretrained(model_name, num_labels=num_labels, **self.args["config"])
-            self.num_labels = num_labels
+            self.num_labels = num_labels # we don't seem to use this later on?
+            self.config.num_additional_labels = num_additional_labels # have to manually set this attribute in config
+                                                                      # because I don't want to modify the transformers
+                                                                      # library too
         else:
             self.config = config_class.from_pretrained(model_name, **self.args["config"])
-            self.num_labels = self.config.num_labels # 2 by default
-        self.config.num_additional_labels = num_additional_labels
+            self.num_labels = self.config.num_labels # 2 by default (unless we provide config in which
+                                                             # num_labels is specified)
+                                                            
         self.weight = weight
 
         if use_cuda:

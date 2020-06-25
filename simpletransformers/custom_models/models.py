@@ -18,16 +18,16 @@ from transformers.configuration_distilbert import DistilBertConfig
 from transformers.configuration_roberta import RobertaConfig
 from transformers.configuration_xlm_roberta import XLMRobertaConfig
 from transformers.modeling_albert import AlbertConfig, AlbertModel, AlbertPreTrainedModel
-from transformers.modeling_distilbert import DISTILBERT_PRETRAINED_MODEL_ARCHIVE_MAP
-from transformers.modeling_electra import (
-    ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP,
-    ElectraConfig,
-    ElectraModel,
-    ElectraPreTrainedModel,
-)
-from transformers.modeling_roberta import ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP, RobertaClassificationHead
+#from transformers.modeling_distilbert import DISTILBERT_PRETRAINED_MODEL_ARCHIVE_MAP
+#from transformers.modeling_electra import (
+#    ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP,
+#    ElectraConfig,
+#    ElectraModel,
+#    ElectraPreTrainedModel,
+#)
+#from transformers.modeling_roberta import ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP, RobertaClassificationHead
 from transformers.modeling_utils import PreTrainedModel, SequenceSummary
-from transformers.modeling_xlm_roberta import XLM_ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
+#from transformers.modeling_xlm_roberta import XLM_ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
 
 
 class BertForMultiLabelSequenceClassification(BertPreTrainedModel):
@@ -134,11 +134,11 @@ class BertForMultiTaskSequenceClassification(BertPreTrainedModel):
         return outputs  # (loss), logits_1, logits_2, (hidden_states), (attentions)
       
 
-
+"""
 class RobertaForMultiLabelSequenceClassification(BertPreTrainedModel):
-    """
+    
     Roberta model adapted for multi-label sequence classification
-    """
+    
 
     config_class = RobertaConfig
     pretrained_model_archive_map = ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
@@ -180,7 +180,7 @@ class RobertaForMultiLabelSequenceClassification(BertPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs
-
+"""
 
 class XLNetForMultiLabelSequenceClassification(XLNetPreTrainedModel):
     """
@@ -289,11 +289,11 @@ class XLMForMultiLabelSequenceClassification(XLMPreTrainedModel):
 
         return outputs
 
-
+"""
 class DistilBertPreTrainedModel(PreTrainedModel):
-    """ An abstract class to handle weights initialization and
+     An abstract class to handle weights initialization and
         a simple interface for downloading and loading pretrained models.
-    """
+    
 
     config_class = DistilBertConfig
     pretrained_model_archive_map = DISTILBERT_PRETRAINED_MODEL_ARCHIVE_MAP
@@ -301,8 +301,8 @@ class DistilBertPreTrainedModel(PreTrainedModel):
     base_model_prefix = "distilbert"
 
     def _init_weights(self, module):
-        """ Initialize the weights.
-        """
+         Initialize the weights.
+        
         if isinstance(module, nn.Embedding):
             if module.weight.requires_grad:
                 module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
@@ -316,9 +316,9 @@ class DistilBertPreTrainedModel(PreTrainedModel):
 
 
 class DistilBertForMultiLabelSequenceClassification(DistilBertPreTrainedModel):
-    """
+    
     DistilBert model adapted for multi-label sequence classification
-    """
+    
 
     def __init__(self, config, pos_weight=None):
         super(DistilBertForMultiLabelSequenceClassification, self).__init__(config)
@@ -351,7 +351,7 @@ class DistilBertForMultiLabelSequenceClassification(DistilBertPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs
-
+"""
 
 class AlbertForMultiLabelSequenceClassification(AlbertPreTrainedModel):
     """
@@ -458,11 +458,11 @@ class FlaubertForMultiLabelSequenceClassification(FlaubertModel):
 
         return outputs
 
-
+"""
 class XLMRobertaForMultiLabelSequenceClassification(RobertaForMultiLabelSequenceClassification):
     config_class = XLMRobertaConfig
     pretrained_model_archive_map = XLM_ROBERTA_PRETRAINED_MODEL_ARCHIVE_MAP
-
+"""
 
 class ElectraPooler(nn.Module):
     def __init__(self, config):
@@ -532,9 +532,9 @@ class ElectraForLanguageModelingModel(PreTrainedModel):
         d_scores = d_out[1]
         return g_loss, d_loss, g_scores, d_scores, d_labels
 
-
+"""
 class ElectraForSequenceClassification(ElectraPreTrainedModel):
-    r"""
+   
     Mostly the ssame as BertForSequenceClassification. A notable difference is that this class contains a pooler while
     BertForSequenceClassification doesn't. This is because pooling happens internally in a BertModel but not in an
     ElectraModel.
@@ -554,8 +554,8 @@ class ElectraForSequenceClassification(ElectraPreTrainedModel):
             Hidden-states of the model at the output of each layer plus the initial embedding outputs.
         **attentions**: (`optional`, returned when ``config.output_attentions=True``)
             list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
-    """  # noqa
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.-
+
     config_class = ElectraConfig
     pretrained_model_archive_map = ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP
     base_model_prefix = "electra"
@@ -602,9 +602,9 @@ class ElectraForSequenceClassification(ElectraPreTrainedModel):
 
 
 class ElectraForMultiLabelSequenceClassification(ElectraPreTrainedModel):
-    """
+    
     ElectraForSequenceClassification model adapted for multi-label sequence classification
-    """
+    
 
     config_class = ElectraConfig
     pretrained_model_archive_map = ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP
@@ -648,9 +648,9 @@ class ElectraForMultiLabelSequenceClassification(ElectraPreTrainedModel):
 
 
 class ElectraForQuestionAnswering(ElectraPreTrainedModel):
-    """
+    
     Identical to BertForQuestionAnswering other than using an ElectraModel
-    """
+    
 
     config_class = ElectraConfig
     pretrained_model_archive_map = ELECTRA_PRETRAINED_MODEL_ARCHIVE_MAP
@@ -704,3 +704,4 @@ class ElectraForQuestionAnswering(ElectraPreTrainedModel):
             outputs = (total_loss,) + outputs
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)
+"""

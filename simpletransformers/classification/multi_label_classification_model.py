@@ -6,15 +6,15 @@ import torch
 from simpletransformers.classification import ClassificationModel
 from simpletransformers.config.global_args import global_args
 from simpletransformers.custom_models.models import (
-    AlbertForMultiLabelSequenceClassification,
+    #AlbertForMultiLabelSequenceClassification,
     BertForMultiLabelSequenceClassification,
-    DistilBertForMultiLabelSequenceClassification,
-    ElectraForMultiLabelSequenceClassification,
-    FlaubertForMultiLabelSequenceClassification,
-    RobertaForMultiLabelSequenceClassification,
-    XLMForMultiLabelSequenceClassification,
-    XLMRobertaForMultiLabelSequenceClassification,
-    XLNetForMultiLabelSequenceClassification,
+    #DistilBertForMultiLabelSequenceClassification,
+    #ElectraForMultiLabelSequenceClassification,
+    #FlaubertForMultiLabelSequenceClassification,
+    #RobertaForMultiLabelSequenceClassification,
+    #XLMForMultiLabelSequenceClassification,
+    #XLMRobertaForMultiLabelSequenceClassification,
+    #XLNetForMultiLabelSequenceClassification,
 )
 from transformers import (
     WEIGHTS_NAME,

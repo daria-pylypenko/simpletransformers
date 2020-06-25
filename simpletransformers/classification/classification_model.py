@@ -27,15 +27,15 @@ import torch
 from simpletransformers.classification.classification_utils import InputExample, convert_examples_to_features
 from simpletransformers.classification.transformer_models.albert_model import AlbertForSequenceClassification
 from simpletransformers.classification.transformer_models.bert_model import BertForSequenceClassification
-from simpletransformers.classification.transformer_models.camembert_model import CamembertForSequenceClassification
-from simpletransformers.classification.transformer_models.distilbert_model import DistilBertForSequenceClassification
+#from simpletransformers.classification.transformer_models.camembert_model import CamembertForSequenceClassification
+#from simpletransformers.classification.transformer_models.distilbert_model import DistilBertForSequenceClassification
 from simpletransformers.classification.transformer_models.flaubert_model import FlaubertForSequenceClassification
-from simpletransformers.classification.transformer_models.roberta_model import RobertaForSequenceClassification
+#from simpletransformers.classification.transformer_models.roberta_model import RobertaForSequenceClassification
 from simpletransformers.classification.transformer_models.xlm_model import XLMForSequenceClassification
-from simpletransformers.classification.transformer_models.xlm_roberta_model import XLMRobertaForSequenceClassification
+#from simpletransformers.classification.transformer_models.xlm_roberta_model import XLMRobertaForSequenceClassification
 from simpletransformers.classification.transformer_models.xlnet_model import XLNetForSequenceClassification
 from simpletransformers.config.global_args import global_args
-from simpletransformers.custom_models.models import ElectraForSequenceClassification
+#from simpletransformers.custom_models.models import ElectraForSequenceClassification
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -98,13 +98,13 @@ class ClassificationModel:
             "bert": (BertConfig, BertForSequenceClassification, BertTokenizer),
             "xlnet": (XLNetConfig, XLNetForSequenceClassification, XLNetTokenizer),
             "xlm": (XLMConfig, XLMForSequenceClassification, XLMTokenizer),
-            "roberta": (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
-            "distilbert": (DistilBertConfig, DistilBertForSequenceClassification, DistilBertTokenizer),
+            #"roberta": (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
+            #"distilbert": (DistilBertConfig, DistilBertForSequenceClassification, DistilBertTokenizer),
             "albert": (AlbertConfig, AlbertForSequenceClassification, AlbertTokenizer),
-            "camembert": (CamembertConfig, CamembertForSequenceClassification, CamembertTokenizer),
-            "xlmroberta": (XLMRobertaConfig, XLMRobertaForSequenceClassification, XLMRobertaTokenizer),
+            #"camembert": (CamembertConfig, CamembertForSequenceClassification, CamembertTokenizer),
+            #"xlmroberta": (XLMRobertaConfig, XLMRobertaForSequenceClassification, XLMRobertaTokenizer),
             "flaubert": (FlaubertConfig, FlaubertForSequenceClassification, FlaubertTokenizer),
-            "electra": (ElectraConfig, ElectraForSequenceClassification, ElectraTokenizer),
+            #"electra": (ElectraConfig, ElectraForSequenceClassification, ElectraTokenizer),
         }
 
         if args and "manual_seed" in args:
@@ -861,7 +861,7 @@ class ClassificationModel:
         # we only add the eval_loss to results, not include it into additional_results,
         # to not repeat it
         if multi_task:    
-            additional_result, additional_wrong = self.compute_metrics(additional_preds, out_additional_label_ids, eval_examples, **kwargs)
+            additional_result, additional_wrong = self.compute_metrics(additional_preds, out_additional_label_ids, eval_examples, additional_task=True, **kwargs)
             additional_results.update(additional_result)
 
         output_eval_file = os.path.join(eval_output_dir, "eval_results.txt")
@@ -978,7 +978,7 @@ class ClassificationModel:
         else:
             return dataset
 
-    def compute_metrics(self, preds, labels, eval_examples, multi_label=False, **kwargs):
+    def compute_metrics(self, preds, labels, eval_examples, multi_label=False, additional_task=False, **kwargs):
         """
         Computes the evaluation metrics for the model predictions.
 
@@ -1012,7 +1012,8 @@ class ClassificationModel:
 
         mcc = matthews_corrcoef(labels, preds)
 
-        if self.model.num_labels == 2:
+        # if it is an additional task, we look at the number of additional labels, otherwise at the number of labels
+        if (additional_task and self.model.num_additional_labels == 2) or (not additional task and self.model.num_labels == 2):
             tn, fp, fn, tp = confusion_matrix(labels, preds, labels=[0, 1]).ravel()
             return (
                 {**{"mcc": mcc, "tp": tp, "tn": tn, "fp": fp, "fn": fn}, **extra_metrics},

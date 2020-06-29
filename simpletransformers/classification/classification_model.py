@@ -485,10 +485,11 @@ class ClassificationModel:
 
                         if args["save_eval_checkpoints"]:
                             if multi_task:
-                                self._save_model(output_dir_current, optimizer, scheduler, model=model, results=results)
+                                self._save_model(output_dir_current, optimizer, scheduler, 
+                                              model=model, results=results, additional_results=additional_results)
                             else:
                                 self._save_model(output_dir_current, optimizer, 
-                                             scheduler, model=model, results=results, additional_results=additional_results)
+                                             scheduler, model=model, results=results)
 
                         training_progress_scores["global_step"].append(global_step)
                         training_progress_scores["train_loss"].append(current_loss)
@@ -1013,7 +1014,7 @@ class ClassificationModel:
         mcc = matthews_corrcoef(labels, preds)
 
         # if it is an additional task, we look at the number of additional labels, otherwise at the number of labels
-        if (additional_task and self.model.num_additional_labels == 2) or (not additional task and self.model.num_labels == 2):
+        if ((additional_task and self.model.num_additional_labels == 2) or ((not additional_task) and self.model.num_labels == 2)):
             tn, fp, fn, tp = confusion_matrix(labels, preds, labels=[0, 1]).ravel()
             return (
                 {**{"mcc": mcc, "tp": tp, "tn": tn, "fp": fp, "fn": fn}, **extra_metrics},

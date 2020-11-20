@@ -25,52 +25,18 @@ from tqdm.auto import tqdm, trange
 import pandas as pd
 import torch
 from simpletransformers.classification.classification_utils import InputExample, convert_examples_to_features
-from simpletransformers.classification.transformer_models.albert_model import AlbertForSequenceClassification
 from simpletransformers.classification.transformer_models.bert_model import BertForSequenceClassification
-#from simpletransformers.classification.transformer_models.camembert_model import CamembertForSequenceClassification
-#from simpletransformers.classification.transformer_models.distilbert_model import DistilBertForSequenceClassification
-from simpletransformers.classification.transformer_models.flaubert_model import FlaubertForSequenceClassification
-#from simpletransformers.classification.transformer_models.roberta_model import RobertaForSequenceClassification
-from simpletransformers.classification.transformer_models.xlm_model import XLMForSequenceClassification
-#from simpletransformers.classification.transformer_models.xlm_roberta_model import XLMRobertaForSequenceClassification
-from simpletransformers.classification.transformer_models.xlnet_model import XLNetForSequenceClassification
 from simpletransformers.config.global_args import global_args
-#from simpletransformers.custom_models.models import ElectraForSequenceClassification
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from transformers import (
-    WEIGHTS_NAME,
     AdamW,
-    AlbertConfig,
-    AlbertTokenizer,
     BertConfig,
     BertTokenizer,
-    CamembertConfig,
-    CamembertTokenizer,
-    DistilBertConfig,
-    DistilBertTokenizer,
-    ElectraConfig,
-    ElectraTokenizer,
-    FlaubertConfig,
-    FlaubertTokenizer,
-    RobertaConfig,
-    RobertaTokenizer,
-    XLMConfig,
-    XLMRobertaConfig,
-    XLMRobertaTokenizer,
-    XLMTokenizer,
-    XLNetConfig,
-    XLNetTokenizer,
     get_linear_schedule_with_warmup,
 )
 
-try:
-    import wandb
-
-    wandb_available = True
-except ImportError:
-    wandb_available = False
 
 logger = logging.getLogger(__name__)
 
@@ -94,18 +60,6 @@ class ClassificationModel:
             **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
         """  # noqa: ignore flake8"
 
-        MODEL_CLASSES = {
-            "bert": (BertConfig, BertForSequenceClassification, BertTokenizer),
-            "xlnet": (XLNetConfig, XLNetForSequenceClassification, XLNetTokenizer),
-            "xlm": (XLMConfig, XLMForSequenceClassification, XLMTokenizer),
-            #"roberta": (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
-            #"distilbert": (DistilBertConfig, DistilBertForSequenceClassification, DistilBertTokenizer),
-            "albert": (AlbertConfig, AlbertForSequenceClassification, AlbertTokenizer),
-            #"camembert": (CamembertConfig, CamembertForSequenceClassification, CamembertTokenizer),
-            #"xlmroberta": (XLMRobertaConfig, XLMRobertaForSequenceClassification, XLMRobertaTokenizer),
-            "flaubert": (FlaubertConfig, FlaubertForSequenceClassification, FlaubertTokenizer),
-            #"electra": (ElectraConfig, ElectraForSequenceClassification, ElectraTokenizer),
-        }
 
         if args and "manual_seed" in args:
             random.seed(args["manual_seed"])
@@ -130,7 +84,11 @@ class ClassificationModel:
         if args:
             self.args.update(args)
 
-        config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
+        config_class = BertConfig
+        model_class, BertForSequenceClassification
+        tokenizer_class = BertTokenizer
+
+
         if num_labels:
             self.config = config_class.from_pretrained(model_name, num_labels=num_labels, **self.args["config"])
             self.num_labels = num_labels

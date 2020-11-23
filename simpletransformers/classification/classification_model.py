@@ -26,7 +26,6 @@ import pandas as pd
 import torch
 from simpletransformers.classification.classification_utils import InputExample, convert_examples_to_features
 from simpletransformers.classification.transformer_models.bert_model import BertForSequenceClassification
-from simpletransformers.config.global_args import global_args
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -37,52 +36,87 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 
+try:
+    import wandb
+
+    wandb_available = True
+except ImportError:
+wandb_available = False
 
 logger = logging.getLogger(__name__)
 
 
 class ClassificationModel:
     def __init__(
-        self, model_type, model_name, num_labels=None, weight=None, args=None, use_cuda=True, cuda_device=-1, **kwargs,
+        self, model_name, num_labels=None, args=None,
+            use_cuda=True, cuda_device=-1, **kwargs,
     ):
 
         """
         Initializes a ClassificationModel model.
 
         Args:
-            model_type: The type of model (bert, xlnet, xlm, roberta, distilbert)
-            model_name: The exact architecture and trained weights to use. This may be a Hugging Face Transformers compatible pre-trained model, a community model, or the path to a directory containing model files.
+            model_name: The exact architecture and trained weights to use. 
+                This may be a Hugging Face Transformers compatible pre-trained model, 
+                a community model, or the path to a directory containing model files.
             num_labels (optional): The number of labels or classes in the dataset.
-            weight (optional): A list of length num_labels containing the weights to assign to each label for loss calculation.
-            args (optional): Default args will be used if this parameter is not provided. If provided, it should be a dict containing the args that should be changed in the default args.
-            use_cuda (optional): Use GPU if available. Setting to False will force model to use CPU only.
-            cuda_device (optional): Specific GPU that should be used. Will use the first available GPU by default.
-            **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
-        """  # noqa: ignore flake8"
+            args (optional): Default args will be used if this parameter is not provided. 
+                          If provided, it should be a dict containing the args 
+                          that should be changed in the default args.
+            use_cuda (optional): Use GPU if available. 
+                         Setting to False will force model to use CPU only.
+            cuda_device (optional): Specific GPU that should be used. 
+                          Will use the first available GPU by default.
+            **kwargs (optional): For providing proxies, force_download, 
+                         resume_download, cache_dir and other options 
+                         specific to the 'from_pretrained' implementation 
+                         where this will be supplied.
+        """
+
+        self.args = self._load_model_args(model_name)
+
+        if isinstance(args, dict):
+            self.args.update_from_dict(args)
+        elif isinstance(args, ClassificationArgs):
+            self.args = args
+
+        if self.args.thread_count:
+            torch.set_num_threads(self.args.thread_count)
+
+        # For hyperparameter tuning
+        if "sweep_config" in kwargs:
+            self.is_sweeping = True
+            sweep_config = kwargs.pop("sweep_config")
+            sweep_values = sweep_config_to_sweep_values(sweep_config)
+            self.args.update_from_dict(sweep_values)
+        else:
+            self.is_sweeping = False
 
 
-        if args and "manual_seed" in args:
-            random.seed(args["manual_seed"])
-            np.random.seed(args["manual_seed"])
-            torch.manual_seed(args["manual_seed"])
-            if "n_gpu" in args and args["n_gpu"] > 0:
-                torch.cuda.manual_seed_all(args["manual_seed"])
+        if self.args.manual_seed:
+            random.seed(self.args.manual_seed)
+            np.random.seed(self.args.manual_seed)
+            torch.manual_seed(self.args.manual_seed)
+            if self.args.n_gpu > 0:
+                torch.cuda.manual_seed_all(self.args.manual_seed)
 
-        self.args = {
-            "sliding_window": False,
-            "tie_value": 1,
-            "stride": 0.8,
-            "regression": False,
-        }
 
-        self.args.update(global_args)
+        if self.args.labels_list:
+            if num_labels:
+                assert num_labels == len(self.args.labels_list)
+            if self.args.labels_map:
+                try:
+                    assert list(self.args.labels_map.keys()) == self.args.labels_list
+                except AssertionError:
+                    assert [int(key) for key in list(self.args.labels_map.keys())] == self.args.labels_list
+                    self.args.labels_map = {int(key): value for key, value in self.args.labels_map.items()}
+            else:
+                self.args.labels_map = {label: i for i, label in enumerate(self.args.labels_list)}
+        else:
+            len_labels_list = 2 if not num_labels else num_labels
+            self.args.labels_list = [i for i in range(len_labels_list)]
 
-        saved_model_args = self._load_model_args(model_name)
-        if saved_model_args:
-            self.args.update(saved_model_args)
 
-        if args:
-            self.args.update(args)
 
         config_class = BertConfig
         model_class, BertForSequenceClassification
@@ -95,7 +129,6 @@ class ClassificationModel:
         else:
             self.config = config_class.from_pretrained(model_name, **self.args["config"])
             self.num_labels = self.config.num_labels
-        self.weight = weight
 
         if use_cuda:
             if torch.cuda.is_available():
@@ -111,31 +144,18 @@ class ClassificationModel:
         else:
             self.device = "cpu"
 
-        if self.weight:
-            self.model = model_class.from_pretrained(
-                model_name, config=self.config, weight=torch.Tensor(self.weight).to(self.device), **kwargs,
-            )
-        else:
-            self.model = model_class.from_pretrained(model_name, config=self.config, **kwargs)
+
+        self.model = model_class.from_pretrained(model_name, config=self.config, **kwargs)
 
         self.results = {}
 
-        if not use_cuda:
-            self.args["fp16"] = False
 
         self.tokenizer = tokenizer_class.from_pretrained(
-            model_name, do_lower_case=self.args["do_lower_case"], **kwargs
+            model_name, do_lower_case=self.args.do_lower_case, **kwargs
         )
 
-        self.args["model_name"] = model_name
-        self.args["model_type"] = model_type
+        self.args.model_name = model_name
 
-        if model_type in ["camembert", "xlmroberta"]:
-            warnings.warn(
-                f"use_multiprocessing automatically disabled as {model_type}"
-                " fails when using multiprocessing for feature conversion."
-            )
-            self.args["use_multiprocessing"] = False
 
         if self.args["wandb_project"] and not wandb_available:
             warnings.warn("wandb_project specified but wandb is not available. Wandb disabled.")
@@ -1257,8 +1277,8 @@ class ClassificationModel:
             json.dump(self.args, f)
 
     def _load_model_args(self, input_dir):
-        model_args_file = os.path.join(input_dir, "model_args.json")
-        if os.path.isfile(model_args_file):
-            with open(model_args_file, "r") as f:
-                model_args = json.load(f)
-            return model_args
+        args = ClassificationArgs()
+        args.load(input_dir)
+        return args
+
+

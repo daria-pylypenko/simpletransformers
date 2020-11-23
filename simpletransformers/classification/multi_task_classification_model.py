@@ -6,7 +6,6 @@ from multiprocessing import cpu_count
 
 import torch
 from simpletransformers.classification import ClassificationModel
-from simpletransformers.config.global_args import global_args
 from simpletransformers.custom_models.models import BertForMultiTaskSequenceClassification
 from transformers import (
     BertConfig,
@@ -26,11 +25,9 @@ logger = logging.getLogger(__name__)
 class MultiTaskClassificationModel(ClassificationModel):
     def __init__(
         self,
-        model_type,
         model_name,
-        num_labels=None,
-        num_additional_labels=None,
-        weight=None,
+        num_labels_1=None,
+        num_labels_2=None,
         args=None,
         use_cuda=True,
         cuda_device=-1,
@@ -41,43 +38,86 @@ class MultiTaskClassificationModel(ClassificationModel):
         Initializes a MultiTaskClassification model.
 
         Args:
-            model_type: The type of model (bert, roberta)
-            model_name: Default Transformer model name or path to a directory containing Transformer model file (pytorch_nodel.bin).
-            num_labels (optional): The number of labels or classes in the dataset.
-            num_additional_labels: The number of labels or classes for the second classification task.
-            weight (optional): A list of length num_labels containing the weights to assign to each label for loss calculation.
-            args (optional): Default args will be used if this parameter is not provided. If provided, it should be a dict containing the args that should be changed in the default args.
-            use_cuda (optional): Use GPU if available. Setting to False will force model to use CPU only.
-            cuda_device (optional): Specific GPU that should be used. Will use the first available GPU by default.
-            **kwargs (optional): For providing proxies, force_download, resume_download, cache_dir and other options specific to the 'from_pretrained' implementation where this will be supplied.
-        """  # noqa: ignore flake8"
+            model_name: Default Transformer model name or path to a directory 
+                         containing Transformer model file (pytorch_nodel.bin).
+            num_labels_1 (optional): The number of labels or classes
+                                      for the first classification task
+            num_additional_labels: The number of labels or classes 
+                                      for the second classification task.
+            args (optional): Default args will be used if this parameter is not provided. 
+                          If provided, it should be a dict containing the args 
+                          that should be changed in the default args.
+            use_cuda (optional): Use GPU if available. 
+                          Setting to False will force model to use CPU only.
+            cuda_device (optional): Specific GPU that should be used. 
+                                  Will use the first available GPU by default.
+            **kwargs (optional): For providing proxies, force_download, 
+                           resume_download, cache_dir and other options 
+                           specific to the 'from_pretrained' implementation 
+                           where this will be supplied.
+        """
 
-        # only for bert
-        MODEL_CLASSES = {
-            "bert": (BertConfig, BertForMultiTaskSequenceClassification, BertTokenizer),
-        }
+        self.args = self._load_model_args(model_name)
 
-
-        if args and "manual_seed" in args:
-            random.seed(args["manual_seed"])
-            np.random.seed(args["manual_seed"])
-            torch.manual_seed(args["manual_seed"])
-            if "n_gpu" in args and args["n_gpu"] > 0:
-                torch.cuda.manual_seed_all(args["manual_seed"])
-
-
-        self.args = {
-            "sliding_window": False,
-            "tie_value": 1,
-            "stride": 0.8,
-            "regression": False,
-        }
-
-        self.args.update(global_args)
+        if isinstance(args, dict):
+            self.args.update_from_dict(args)
+        elif isinstance(args, ClassificationArgs):
+            self.args = args
 
 
-        if args:
-            self.args.update(args)
+        if self.args.thread_count:
+            torch.set_num_threads(self.args.thread_count)
+
+        # For hyperparameter tuning
+        if "sweep_config" in kwargs:
+            self.is_sweeping = True
+            sweep_config = kwargs.pop("sweep_config")
+            sweep_values = sweep_config_to_sweep_values(sweep_config)
+            self.args.update_from_dict(sweep_values)
+        else:
+            self.is_sweeping = False
+
+
+        if self.args.manual_seed:
+            random.seed(self.args.manual_seed)
+            np.random.seed(self.args.manual_seed)
+            torch.manual_seed(self.args.manual_seed)
+            if self.args.n_gpu > 0:
+                torch.cuda.manual_seed_all(self.args.manual_seed)
+
+
+
+        if self.args.labels_list_1:
+            if num_labels_1:
+                assert num_labels_1 == len(self.args.labels_list_1)
+            if self.args.labels_map_1:
+                try:
+                    assert list(self.args.labels_map_1.keys()) == self.args.labels_list_1
+                except AssertionError:
+                    assert [int(key) for key in list(self.args.labels_map_1.keys())] == self.args.labels_list_1
+                    self.args.labels_map_1 = {int(key): value for key, value in self.args.labels_map_1.items()}
+            else:
+                self.args.labels_map_1 = {label: i for i, label in enumerate(self.args.labels_list_1)}
+        else:
+            len_labels_list_1 = 2 if not num_labels_1 else num_labels_1
+            self.args.labels_list_1 = [i for i in range(len_labels_list_1)]
+
+
+
+        if self.args.labels_list_2:
+            if num_labels_2:
+                assert num_labels_2 == len(self.args.labels_list_2)
+            if self.args.labels_map_2:
+                try:
+                    assert list(self.args.labels_map_2.keys()) == self.args.labels_list_2
+                except AssertionError:
+                    assert [int(key) for key in list(self.args.labels_map_2.keys())] == self.args.labels_list_2
+                    self.args.labels_map_2 = {int(key): value for key, value in self.args.labels_map_2.items()}
+            else:
+                self.args.labels_map_2 = {label: i for i, label in enumerate(self.args.labels_list_2)}
+        else:
+            len_labels_list_2 = 2 if not num_labels_2 else num_labels_2
+            self.args.labels_list_2 = [i for i in range(len_labels_list_2)]
 
 
         config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
